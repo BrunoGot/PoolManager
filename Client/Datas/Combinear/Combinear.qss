@@ -641,7 +641,7 @@ QListView[styleVariant="1"]
 QListView::disabled 
 {
 	background-color: #656565;
-	color: #1b1b1b;
+	color: #ff551b;
     border: 1px solid #656565;
 
 }

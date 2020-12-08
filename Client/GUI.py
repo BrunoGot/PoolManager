@@ -71,7 +71,7 @@ class MyDialog(QtGui.QWidget):
             text.setAlignment(Qt.AlignCenter)
             #pool list widget
             pool_widget = QtGui.QListWidget(self)
-            pool_widget.setFixedSize(100,150)
+            pool_widget.setFixedSize(130,150)
             #add datas to it
             if(self.PC_by_pools.has_key(pool_name)):
                 pool_widget.addItems(self.PC_by_pools[pool_name])
@@ -156,14 +156,20 @@ class MyDialog(QtGui.QWidget):
         #pour chq blades
         #si ils ne sont pas present dans la pool default ou si ils sont deja selectionnes
         #mettre leur valeur en gris
-        for blade in self.PC_list:
-            if blade not in self.PC_by_pools[self.default_pool]:
+        """for blade in self.PC_list:
+            if blade not in self.PC_by_pools[self.default_pool]: #if the blade is not in the default pool, make it unavailable
                 items = self.PC_list_widget.findItems(blade, Qt.MatchExactly)
                 if(len(items)>0):
                     item = items[0]
-                    row = self.PC_list_widget.row(item)
-                    item.setBackground(QtGui.QBrush(QtGui.QColor(60, 60, 65)))
+                    #row = self.PC_list_widget.row(item)
+                    #item.setBackground(QtGui.QBrush(QtGui.QColor(60, 60, 65)))
                     #self.set_color(QtGui.QColor(60, 60, 65), row)
+                    item.setFlags(~QtCore.Qt.ItemIsEnabled)
+                """
+        nb_pc_items=self.PC_list_widget.count()
+        for i in range(0,nb_pc_items):
+            if(self.PC_list_widget.item(i).text() not in self.PC_by_pools[self.default_pool]):
+                self.PC_list_widget.item(i).setFlags(~QtCore.Qt.ItemIsEnabled)
 
                 #get the widget list
                 #get the good line
@@ -173,19 +179,15 @@ class MyDialog(QtGui.QWidget):
         #read text file, check if selection is available
         #write text file, handle if erros
         #update the view
-
+        self.update_available_blades()
         selections = self.PC_list_widget.selectedItems()
 
         for i in selections:#range(0,len(selections)):
             if(len(self.selected_list.findItems(i.text(),Qt.MatchExactly))==0):
                 self.selected_list.addItem(i.text())#].text())
                 PC_row = self.PC_list_widget.row(i)
-                i.setFlags(~QtCore.Qt.ItemIsEnabled)
-
                 #i.setFlags(QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable)
-
                 #i.setBackground(QtGui.QBrush(QtGui.QColor(255, 60, 65)))
-
                 #i.setStyleSheet("{color:#FFFF00}")
                 """self.PC_list_widget.setProperty("styleVariant", 1)
                 self.PC_list_widget.style().unpolish(self.PC_list_widget)
@@ -197,18 +199,30 @@ class MyDialog(QtGui.QWidget):
         pools = self.parse_txt_file()
         #compare if the selection is available or not; if it's in the default pool, it available
         valid_selection = []
+        invalid_selection = []
         for item in selections:
             blade = item.text()
             if (blade in pools[self.default_pool]):#remove selected blade from default pool to move it to the current pool
                 valid_selection.append(blade)
                 pools[self.default_pool].remove(blade)
-            if(pools.has_key(self.current_Team) and blade in pools[self.current_Team]): #reset current pool
+                item.setFlags(~QtCore.Qt.ItemIsEnabled)
+            elif(pools.has_key(self.current_Team) and blade in pools[self.current_Team]): #reset current pool
                 valid_selection.append(blade)
                 #pools[self.current_Team].remove(blade)
-
+            else:
+                invalid_selection.append(blade)
         #edit the text file
         self.update_text_file(pools,valid_selection)
-        #todo : display a pop up indicating the blade that havn't been added and why
+        if(len(invalid_selection)>0):
+            msg = "unfortunately the following PC are not available : "
+            for i in invalid_selection:
+                msg += "\n - "+i
+            msg+="\n dur mec !"
+
+            #todo : display a pop up indicating the blade that havn't been added and why
+            info = QtGui.QMessageBox()
+            info.setText(msg)
+            info.exec_()
 
     def update_text_file(self, new_pools, valid_selection):
         list_blades = []  # saves the datas in a buffer
@@ -261,47 +275,55 @@ class MyDialog(QtGui.QWidget):
                 row = self.selected_list.row(i) #get the row
                 PC_items = self.PC_list_widget.findItems(i.text(),Qt.MatchExactly ) #get the equivalent item in the allPC selection
                 PC_row = self.PC_list_widget.row(PC_items[0]) #get the row in the all_PC list
+                self.PC_list_widget.item(PC_row).setFlags(QtCore.Qt.ItemIsEnabled)
+
                 self.selected_list.takeItem(row) #remove from the selection
                 print("PC_row = "+str(PC_row)+" i = "+str(i))
                 self.set_color(QtGui.QColor(25, 25, 25),PC_row)
+
                 print("remove item")
                 #update the current pool PC list
                 pools[self.current_Team].remove(i.text())
                 if(pools.has_key(self.default_pool)):
                     pools[self.default_pool].append(i.text())
-                else:pools[self.default_pool] = [i.text()]
+                else:
+                    pools[self.default_pool] = [i.text()]
             #set the new PC list with all the pools
-            '''new_PC_list = []
-            for i in self.PC_by_pools.keys():
-                for pc in self.PC_by_pools[i]:
-                    new_PC_list.append(pc+";"+i+"\n")
-            f = open(self.path, "w")
-            f.writelines(new_PC_list)
-            #overwrite the txt file
-            # edit the text file'''
             self.update_text_file(pools, [])
 
     def set_color(self, color, row):
         self.PC_list_widget.item(row).setBackground(QtGui.QBrush(QtGui.QColor(color)))
 
-    def apply_changes(self):
+    def write_selection_as_output(self):
+        """write the selection in a single text file to apply it to the render farm as a pool"""
         f = open(self.out_path, "w")
         selection = []
-        for index in range(0,self.selected_list.count()):
+        for index in range(0, self.selected_list.count()):
             item = self.selected_list.item(index)
-            line= item.text()+"\n"
+            line = item.text() + "\n"
             selection.append(line)
         f.writelines(selection)
         f.close()
+
+    def apply_changes(self):
+        self.write_selection_as_output()
         #update views
         self.PC_by_pools = self.parse_txt_file()
         self.update_list(self.pool_widget_list[self.default_pool], self.PC_by_pools[self.default_pool])
-        print("apply changes")
+        #display success message
+        info_win = QtGui.QMessageBox()
+        info_win.setText("pool setted succefully ! ")
+        info_win.exec_()
 
+    def update_lits_vwidgets(self):
+        for pool_name in self.team_list:
+            pool_widget = self.pool_widget_list[pool_name]
+            pool_widget.clear()
+            pool_widget.addItems(self.PC_by_pools[pool_name])
 
-    def update_list(self, list_widget, PC_by_pools):
+    def update_list(self, list_widget, PCs):
         list_widget.clear()
-        list_widget.addItems(PC_by_pools)
+        list_widget.addItems(PCs)
 
     ####model####
     def import_PC_list(self, path):
