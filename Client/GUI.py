@@ -1,4 +1,5 @@
 import sys
+import os
 from PySide import QtGui, QtCore
 from PySide.QtCore import QFile, QTextStream, Qt
 
@@ -10,12 +11,12 @@ from PySide.QtCore import QFile, QTextStream, Qt
 class MyDialog(QtGui.QWidget):
 
     #user accounts
-    user_list = ["bgot", "raudras"]
-    mapping_user_team = {"bgot":"Hakam", "raudras":"Dive"}
+    user_list = ["mromani", "bmakki", "kcapricelucien", "raudras", "bgot", "aperrin", "nbaussois", "lflorean", "ithistedjorgensen", "lremy", "td"]
+    mapping_user_team = {"mromani":"BACKSTAGE","bmakki":"BARNEY","kcapricelucien":"COCORICA", "raudras":"DIVE", "aperrin":"DREAMBLOWER", "nbaussois":"FROM_ABOVE", "":"GOOD_MORNING_KITTY", "lflorean":"GREEN", "bgot":"HAKAM", "ithistedjorgensen":"PIR_HEARTH", "lremy":"RELATIVITY", "td":"TEST_PIPE" }
     # list of other PC selected from different blades
     default_pool = "default"
-    team_list = [default_pool, "Hakam", "GMK", "Dive", "Backstage"]
-    current_Team = "Hakam"
+    team_list = [default_pool, "BACKSTAGE", "BARNEY", "COCORICA", "DIVE", "DREAMBLOWER", "FROM_ABOVE", "GOOD_MORNING_KITTY", "GREEN", "HAKAM", "PIR_HEARTH", "RELATIVITY", "TEST_PIPE"]
+    current_Team = "HAKAM"
     scroll_layout = None
 
     path = r"Datas/blade_liste.txt" #path of the blade list
@@ -59,8 +60,8 @@ class MyDialog(QtGui.QWidget):
         #pool selections and Layout
         pools_layout = QtGui.QHBoxLayout()
         self.scroll_layout = QtGui.QScrollArea(self)
-        ###init the pools GUI
 
+        ###init the pools GUI
         for i in range(0,len(self.team_list)):
             #if self.default_pool not in self.PC_by_pools.keys()[i]:
             pool_name = self.team_list[i] #get current GUI name
@@ -81,7 +82,6 @@ class MyDialog(QtGui.QWidget):
             layout.addWidget(text)
             layout.addWidget(self.pool_widget_list[pool_name])
             pools_layout.addLayout(layout)
-        #self.scroll_layout.setLayout(pools_layout)
 
         ####selection lists layout####
         hbox = QtGui.QHBoxLayout()
@@ -147,7 +147,7 @@ class MyDialog(QtGui.QWidget):
         main_layout.addWidget(self.apply_button)
         main_layout.addWidget(label)
         self.setLayout(main_layout)
-
+        self.update_available_blades()
         self.show()
 
 
@@ -205,7 +205,7 @@ class MyDialog(QtGui.QWidget):
             if (blade in pools[self.default_pool]):#remove selected blade from default pool to move it to the current pool
                 valid_selection.append(blade)
                 pools[self.default_pool].remove(blade)
-                item.setFlags(~QtCore.Qt.ItemIsEnabled)
+                item.setFlags(~QtCore.Qt.ItemIsEnabled) #set the color of the row if active or not
             elif(pools.has_key(self.current_Team) and blade in pools[self.current_Team]): #reset current pool
                 valid_selection.append(blade)
                 #pools[self.current_Team].remove(blade)
@@ -279,7 +279,7 @@ class MyDialog(QtGui.QWidget):
 
                 self.selected_list.takeItem(row) #remove from the selection
                 print("PC_row = "+str(PC_row)+" i = "+str(i))
-                self.set_color(QtGui.QColor(25, 25, 25),PC_row)
+               # self.set_color(QtGui.QColor(25, 25, 25),PC_row)
 
                 print("remove item")
                 #update the current pool PC list
@@ -309,17 +309,34 @@ class MyDialog(QtGui.QWidget):
         self.write_selection_as_output()
         #update views
         self.PC_by_pools = self.parse_txt_file()
-        self.update_list(self.pool_widget_list[self.default_pool], self.PC_by_pools[self.default_pool])
+        print("self.PC_by_pools = "+str(self.PC_by_pools))
+        self.update_lists_widgets()
+        """for i in self.team_list:
+            if(self.PC_by_pools.has_key(i)):
+                self.update_list(self.pool_widget_list[self.default_pool], self.PC_by_pools[self.default_pool])"""
+        #send changes to tractor
+        self.send_tractor_cmd()
         #display success message
         info_win = QtGui.QMessageBox()
         info_win.setText("pool setted succefully ! ")
         info_win.exec_()
 
-    def update_lits_vwidgets(self):
+    def send_tractor_cmd(self):
+        here = os.path.dirname(__file__)
+        pool_path = here+"/"+self.out_path
+        pool_path = pool_path.replace("/",os.sep)
+        cmd = "artfx-tractor pool "+self.current_Team+" --file "+pool_path
+        print "cmd = "+cmd
+        #print("here = "+)
+        os.system(cmd)
+
+    def update_lists_widgets(self):
         for pool_name in self.team_list:
-            pool_widget = self.pool_widget_list[pool_name]
-            pool_widget.clear()
-            pool_widget.addItems(self.PC_by_pools[pool_name])
+            if(self.PC_by_pools.has_key(pool_name)):
+                print("update pool "+pool_name)
+                pool_widget = self.pool_widget_list[pool_name]
+                pool_widget.clear()
+                pool_widget.addItems(self.PC_by_pools[pool_name])
 
     def update_list(self, list_widget, PCs):
         list_widget.clear()
@@ -360,7 +377,7 @@ def GUI_style(app):
     qss = QtCore.QTextStream(fileQss)
     print("QSS = "+qss.readAll())
     app.setStyleSheet(qss.readAll())"""
-    file_qss = open("C:\Users\Natspir\Documents\Code\Python\ArtFX\PoolManager\Client\Datas\Combinear\Combinear.qss")
+    file_qss = open(".\Datas\Combinear\Combinear.qss")
     with file_qss:
         qss = file_qss.read()
         #print("QSS = "+qss)
